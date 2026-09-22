@@ -126,7 +126,7 @@ export const Footer: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-sky-400" />
             <span>© {new Date().getFullYear()} {clinicInfo.name}. All rights reserved.</span>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6">
             <Link to="/privacy-policy" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
             <Link to="/medical-disclaimer" className="hover:text-slate-300 transition-colors">Medical Disclaimer</Link>
           </div>

@@ -2,10 +2,27 @@ import React from 'react';
 import { SEOHead } from '../components/seo/SEOHead';
 import { AppointmentForm } from '../components/booking/AppointmentForm';
 import { clinicInfo } from '../data/clinicInfo';
-import { Phone, MessageSquare, MapPin, Star, ShieldCheck } from 'lucide-react';
+import { Phone, MessageSquare, MapPin, Star, ShieldCheck, Share2 } from 'lucide-react';
 import { openWhatsAppChat } from '../utils/whatsapp';
+import { trackEvent } from '../utils/analytics';
 
 export const BookPage: React.FC = () => {
+  const handlePhoneClick = () => {
+    trackEvent('cta_phone_click', { placement: 'book_page_sidebar' });
+  };
+
+  const handleWhatsAppClick = () => {
+    trackEvent('cta_whatsapp_click', { placement: 'book_page_sidebar' });
+    openWhatsAppChat();
+  };
+
+  const handleReferralClick = () => {
+    trackEvent('referral_cta_click', { placement: 'book_page_sidebar', channel: 'whatsapp' });
+    const shareText = `Hi! If you are looking for gentle chiropractic care or spinal alignment in Electronic City, I recommend Dr Shinto Thomas at Dr Hashi Chiropractic: ${window.location.origin}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <>
       <SEOHead
@@ -14,7 +31,6 @@ export const BookPage: React.FC = () => {
       />
       <main className="py-12 lg:py-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
           {/* Header */}
           <div className="text-center space-y-4 mb-12">
             <span className="inline-block bg-sky-100 text-sky-800 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full">
@@ -29,7 +45,6 @@ export const BookPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            
             {/* Form Column */}
             <div className="lg:col-span-7">
               <AppointmentForm />
@@ -37,7 +52,6 @@ export const BookPage: React.FC = () => {
 
             {/* Sidebar Details */}
             <div className="lg:col-span-5 space-y-6">
-              
               {/* Rating Card */}
               <div className="bg-white p-7 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
                 <div className="flex items-center gap-2 text-amber-500 font-bold text-base">
@@ -59,6 +73,7 @@ export const BookPage: React.FC = () => {
                 <div className="space-y-3">
                   <a
                     href={`tel:${clinicInfo.phone}`}
+                    onClick={handlePhoneClick}
                     className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 px-4 rounded-xl text-xs transition-colors"
                   >
                     <Phone className="w-4 h-4 text-sky-600" />
@@ -66,13 +81,32 @@ export const BookPage: React.FC = () => {
                   </a>
 
                   <button
-                    onClick={() => openWhatsAppChat()}
+                    onClick={handleWhatsAppClick}
                     className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition-colors shadow-sm"
                   >
                     <MessageSquare className="w-4 h-4" />
                     <span>Direct WhatsApp Chat</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Refer a Colleague / Family Member */}
+              <div className="bg-gradient-to-br from-teal-900 to-slate-900 text-white p-7 rounded-3xl border border-teal-800 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-wider">
+                  <Share2 className="w-4 h-4" />
+                  <span>Refer a Friend or Colleague</span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Help a coworker or family member in Electronic City get relief from desk posture strain or back stiffness.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReferralClick}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all shadow-sm"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Share Clinic Link on WhatsApp</span>
+                </button>
               </div>
 
               {/* Clinic Address Info */}
@@ -87,11 +121,8 @@ export const BookPage: React.FC = () => {
                   <span>No referral required for initial evaluation</span>
                 </div>
               </div>
-
             </div>
-
           </div>
-
         </div>
       </main>
     </>

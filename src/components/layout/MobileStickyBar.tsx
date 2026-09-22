@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Phone, MessageSquare, Calendar } from 'lucide-react';
 import { clinicInfo } from '../../data/clinicInfo';
 import { openWhatsAppChat } from '../../utils/whatsapp';
+import { trackEvent } from '../../utils/analytics';
 
 export const MobileStickyBar: React.FC = () => {
   return (
@@ -11,6 +12,7 @@ export const MobileStickyBar: React.FC = () => {
         {/* Call Button */}
         <a
           href={`tel:${clinicInfo.phone}`}
+          onClick={() => trackEvent('cta_phone_click', { placement: 'mobile_sticky_bar' })}
           className="flex flex-col items-center justify-center gap-1 min-h-[48px] bg-slate-100 hover:bg-slate-200 text-slate-800 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 active:bg-slate-300"
         >
           <Phone className="w-4.5 h-4.5 text-sky-600" />
@@ -19,7 +21,10 @@ export const MobileStickyBar: React.FC = () => {
 
         {/* WhatsApp Button */}
         <button
-          onClick={() => openWhatsAppChat()}
+          onClick={() => {
+            trackEvent('cta_whatsapp_click', { placement: 'mobile_sticky_bar' });
+            openWhatsAppChat();
+          }}
           className="flex flex-col items-center justify-center gap-1 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
         >
           <MessageSquare className="w-4.5 h-4.5" />
@@ -29,6 +34,7 @@ export const MobileStickyBar: React.FC = () => {
         {/* Book Button */}
         <Link
           to="/book"
+          onClick={() => trackEvent('cta_book_click', { placement: 'mobile_sticky_bar' })}
           className="flex flex-col items-center justify-center gap-1 min-h-[48px] bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
         >
           <Calendar className="w-4.5 h-4.5" />

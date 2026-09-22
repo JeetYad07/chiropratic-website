@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, MessageSquare, Star, MapPin, CheckCircle2 } from 'lucide-react';
 import { clinicInfo } from '../../data/clinicInfo';
 import { openWhatsAppChat } from '../../utils/whatsapp';
+import { trackEvent } from '../../utils/analytics';
 
 export const Hero: React.FC = () => {
   return (
@@ -12,10 +13,8 @@ export const Hero: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          
           {/* Left Hero Content */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            
             {/* Google Rating Badge */}
             <div className="inline-flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-full shadow-sm border border-slate-200/80 text-xs font-semibold text-slate-700 mx-auto lg:mx-0">
               <div className="flex text-amber-400">
@@ -59,14 +58,18 @@ export const Hero: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-4">
               <Link
                 to="/book"
+                onClick={() => trackEvent('cta_book_click', { placement: 'hero_section' })}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white font-bold text-base px-7 py-3.5 rounded-xl shadow-md hover:shadow-glow btn-glow transition-all transform active:scale-95"
               >
                 <Calendar className="w-5 h-5" />
                 <span>Book Appointment</span>
               </Link>
-              
+
               <button
-                onClick={() => openWhatsAppChat()}
+                onClick={() => {
+                  trackEvent('cta_whatsapp_click', { placement: 'hero_section' });
+                  openWhatsAppChat();
+                }}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base px-7 py-3.5 rounded-xl shadow-md transition-all transform active:scale-95"
               >
                 <MessageSquare className="w-5 h-5" />
@@ -84,11 +87,10 @@ export const Hero: React.FC = () => {
           {/* Right Visual Card / Doctor & Clinic Highlight */}
           <div className="lg:col-span-5">
             <div className="relative mx-auto max-w-md lg:max-w-none">
-              
               {/* Card Container */}
               <div className="relative bg-white p-6 rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-sky-100/60 rounded-full blur-2xl -mr-10 -mt-10" />
-                
+
                 {/* Visual Header */}
                 <div className="flex items-center gap-4 pb-5 border-b border-slate-100">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-600 to-teal-600 flex items-center justify-center text-white font-bold text-2xl shadow-md">
@@ -136,15 +138,17 @@ export const Hero: React.FC = () => {
                 {/* Emergency / Direct Call */}
                 <div className="pt-4 mt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500">Need quick advice?</span>
-                  <a href={`tel:${clinicInfo.phone}`} className="font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1">
+                  <a
+                    href={`tel:${clinicInfo.phone}`}
+                    onClick={() => trackEvent('cta_phone_click', { placement: 'hero_card' })}
+                    className="font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                  >
                     <span>Call {clinicInfo.phoneDisplay}</span>
                   </a>
                 </div>
-
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </section>

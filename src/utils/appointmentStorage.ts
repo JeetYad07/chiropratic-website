@@ -1,99 +1,89 @@
 import { clinicInfo } from '../data/clinicInfo';
+import { AppointmentRecord, BookingStatus } from '../types/booking';
+import { appointmentApiService, ADMIN_AUTH_TOKEN } from '../services/appointmentApiService';
 
-export interface StoredAppointment {
-  id: string;
-  name: string;
-  phone: string;
-  preferredDate: string;
-  preferredTime: string;
-  mainConcern?: string;
-  message?: string;
-  status: 'PENDING' | 'CONFIRMED';
-  createdAt: string;
-  confirmedAt?: string;
-}
+export type StoredAppointment = AppointmentRecord;
 
-const STORAGE_KEY = 'dr_hashi_active_appointment';
+const STORAGE_ACTIVE_KEY = 'dr_hashi_active_appointment';
 
 /**
- * Generates a unique, human-readable appointment reference ID.
- * Format: HASHI-YYYYMMDD-XXXX
+ * Saves a new appointment request to both the backend repository and active session.
+ * Initial status is strictly PENDING_CONFIRMATION.
  */
-export function generateReferenceId(): string {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  return `HASHI-${dateStr}-${randomSuffix}`;
-}
+export function saveAppointment(
+  appointmentData: Omit<AppointmentRecord, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'statusHistory'>
+): AppointmentRecord {
+  const res = appointmentApiService.createAppointment({
+    name: appointmentData.name,
+    phone: appointmentData.phone,
+    preferredDate: appointmentData.preferredDate,
+    preferredTime: appointmentData.preferredTime,
+    mainConcern: appointmentData.mainConcern,
+    message: appointmentData.message,
+  });
 
-/**
- * Saves a new appointment request to browser localStorage.
- */
-export function saveAppointment(appointmentData: Omit<StoredAppointment, 'id' | 'status' | 'createdAt'>): StoredAppointment {
-  const newAppointment: StoredAppointment = {
-    ...appointmentData,
-    id: generateReferenceId(),
-    status: 'PENDING',
-    createdAt: new Date().toISOString(),
-  };
-
+  const record = res.data!;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newAppointment));
+    localStorage.setItem(STORAGE_ACTIVE_KEY, JSON.stringify(record));
   } catch (err) {
-    console.error('Failed to save appointment to localStorage:', err);
+    console.error('Failed to save active appointment:', err);
   }
 
-  return newAppointment;
+  return record;
 }
 
 /**
- * Retrieves the current active appointment from localStorage.
+ * Retrieves the current active appointment from storage or fetches fresh record from API.
  */
-export function getActiveAppointment(): StoredAppointment | null {
+export function getActiveAppointment(): AppointmentRecord | null {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = localStorage.getItem(STORAGE_ACTIVE_KEY);
     if (!data) return null;
-    return JSON.parse(data) as StoredAppointment;
+    const active = JSON.parse(data) as AppointmentRecord;
+    // Sync latest state from backend DB
+    const fresh = appointmentApiService.getAppointmentById(active.id);
+    return fresh || active;
   } catch (err) {
-    console.error('Failed to parse appointment from localStorage:', err);
+    console.error('Failed to parse active appointment:', err);
     return null;
   }
 }
 
 /**
- * Updates the status of the current active appointment (e.g., CONFIRMED).
- * Triggers a web browser notification if permission is granted.
+ * Updates status of active appointment (doctor simulation or admin action).
  */
-export function updateAppointmentStatus(status: 'PENDING' | 'CONFIRMED'): StoredAppointment | null {
+export function updateAppointmentStatus(status: BookingStatus): AppointmentRecord | null {
   const current = getActiveAppointment();
   if (!current) return null;
 
-  const updated: StoredAppointment = {
-    ...current,
-    status,
-    confirmedAt: status === 'CONFIRMED' ? new Date().toISOString() : undefined,
-  };
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch (err) {
-    console.error('Failed to update appointment in localStorage:', err);
-  }
-
+  let res;
   if (status === 'CONFIRMED') {
-    triggerConfirmationNotification(updated);
+    res = appointmentApiService.confirmAppointment(current.id, ADMIN_AUTH_TOKEN);
+  } else if (status === 'DECLINED') {
+    res = appointmentApiService.declineAppointment(current.id, ADMIN_AUTH_TOKEN);
+  } else {
+    res = appointmentApiService.updateAppointmentStatus(current.id, status, ADMIN_AUTH_TOKEN);
   }
 
-  return updated;
+  if (res.success && res.data) {
+    localStorage.setItem(STORAGE_ACTIVE_KEY, JSON.stringify(res.data));
+    if (status === 'CONFIRMED') {
+      triggerConfirmationNotification(res.data);
+    }
+    return res.data;
+  }
+
+  return current;
 }
 
 /**
- * Clears the active appointment from localStorage.
+ * Clears active appointment from local session.
  */
 export function clearActiveAppointment(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_ACTIVE_KEY);
   } catch (err) {
-    console.error('Failed to clear appointment from localStorage:', err);
+    console.error('Failed to clear active appointment:', err);
   }
 }
 
@@ -111,18 +101,19 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Triggers a native Web Browser Notification when appointment is confirmed.
+ * Triggers a Web Push Notification when doctor confirms appointment.
  */
-export function triggerConfirmationNotification(appointment: StoredAppointment): void {
-  if (!('Notification' in window)) return;
+export function triggerConfirmationNotification(appointment: AppointmentRecord): void {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-  if (Notification.permission === 'granted') {
-    const title = `🟢 Appointment Confirmed! - ${clinicInfo.name}`;
-    const options: NotificationOptions = {
-      body: `Hi ${appointment.name}, Dr Hashi has confirmed your session for ${appointment.preferredDate} (${appointment.preferredTime}). See you at the clinic!`,
-      icon: '/favicon.ico',
+  try {
+    new Notification('🟢 Appointment Confirmed by Dr Hashi', {
+      body: `Your chiropractic session is confirmed for ${appointment.preferredDate} (${appointment.preferredTime}) at ${clinicInfo.name}.`,
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
       tag: appointment.id,
-    };
-    new Notification(title, options);
+    });
+  } catch (err) {
+    console.error('Failed to trigger web notification:', err);
   }
 }

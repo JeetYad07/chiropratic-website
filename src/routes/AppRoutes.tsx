@@ -9,6 +9,10 @@ import { ReviewsPage } from '../pages/ReviewsPage';
 import { FAQPage } from '../pages/FAQPage';
 import { ContactPage } from '../pages/ContactPage';
 import { BookPage } from '../pages/BookPage';
+import { AppointmentTrackingPage } from '../pages/AppointmentTrackingPage';
+import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage';
+import { AdminAppointmentDetailPage } from '../pages/admin/AdminAppointmentDetailPage';
+import { AdminAuthGate } from '../components/admin/AdminAuthGate';
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage';
 import { MedicalDisclaimerPage } from '../pages/MedicalDisclaimerPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -38,6 +42,26 @@ export const AppRoutes: React.FC = () => {
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/book" element={<BookPage />} />
+        <Route path="/appointments/:id" element={<AppointmentTrackingPage />} />
+        
+        {/* Protected Admin Routes */}
+        <Route
+          path="/admin/appointments"
+          element={
+            <AdminAuthGate>
+              <AdminDashboardPage />
+            </AdminAuthGate>
+          }
+        />
+        <Route
+          path="/admin/appointments/:id"
+          element={
+            <AdminAuthGate>
+              <AdminAppointmentDetailPage />
+            </AdminAuthGate>
+          }
+        />
+
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/medical-disclaimer" element={<MedicalDisclaimerPage />} />
         <Route path="*" element={<NotFoundPage />} />

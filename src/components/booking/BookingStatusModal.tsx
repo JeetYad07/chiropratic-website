@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, Clock, Calendar as CalendarIcon, MessageSquare, Bell, ExternalLink, Download, Trash2, CheckCircle2 } from 'lucide-react';
-import { getActiveAppointment, updateAppointmentStatus, clearActiveAppointment, requestNotificationPermission, StoredAppointment } from '../../utils/appointmentStorage';
+import {
+  X,
+  Clock,
+  Calendar as CalendarIcon,
+  MessageSquare,
+  ExternalLink,
+  Download,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  HelpCircle,
+} from 'lucide-react';
+import {
+  getActiveAppointment,
+  clearActiveAppointment,
+} from '../../utils/appointmentStorage';
+import { appointmentApiService } from '../../services/appointmentApiService';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../../utils/calendar';
 import { openWhatsAppChat } from '../../utils/whatsapp';
-import { clinicInfo } from '../../data/clinicInfo';
+import { AppointmentRecord, BookingStatus } from '../../types/booking';
 
 interface BookingStatusModalProps {
   isOpen: boolean;
@@ -11,31 +27,34 @@ interface BookingStatusModalProps {
   onAppointmentCleared?: () => void;
 }
 
-export const BookingStatusModal: React.FC<BookingStatusModalProps> = ({ isOpen, onClose, onAppointmentCleared }) => {
-  const [appointment, setAppointment] = useState<StoredAppointment | null>(null);
-  const [notificationEnabled, setNotificationEnabled] = useState<boolean>(false);
+export const BookingStatusModal: React.FC<BookingStatusModalProps> = ({
+  isOpen,
+  onClose,
+  onAppointmentCleared,
+}) => {
+  const [appointment, setAppointment] = useState<AppointmentRecord | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setAppointment(getActiveAppointment());
-      if ('Notification' in window && Notification.permission === 'granted') {
-        setNotificationEnabled(true);
-      }
+      const active = getActiveAppointment();
+      setAppointment(active);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleEnableNotifications = async () => {
-    const granted = await requestNotificationPermission();
-    setNotificationEnabled(granted);
-  };
-
-  const handleToggleStatusSim = () => {
+  const handlePatientAlternative = (decision: 'ACCEPT' | 'DECLINE') => {
     if (!appointment) return;
-    const nextStatus = appointment.status === 'PENDING' ? 'CONFIRMED' : 'PENDING';
-    const updated = updateAppointmentStatus(nextStatus);
-    setAppointment(updated);
+    const res = appointmentApiService.patientRespondAlternative(appointment.id, decision);
+    if (res.success && res.data) {
+      setAppointment(res.data);
+      setActionFeedback(
+        decision === 'ACCEPT'
+          ? 'You accepted the alternative slot! Session is now confirmed.'
+          : 'You declined the alternative slot. Please contact the clinic for other slots.'
+      );
+    }
   };
 
   const handleClear = () => {
@@ -45,10 +64,61 @@ export const BookingStatusModal: React.FC<BookingStatusModalProps> = ({ isOpen, 
     onClose();
   };
 
+  const getStatusBadge = (status: BookingStatus) => {
+    switch (status) {
+      case 'CONFIRMED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            🟢 Confirmed by Dr. Hashi
+          </span>
+        );
+      case 'PENDING_CONFIRMATION':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+            <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+            🟡 Awaiting Doctor Confirmation
+          </span>
+        );
+      case 'ALTERNATIVE_PROPOSED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
+            <AlertTriangle className="w-3.5 h-3.5 text-sky-600" />
+            🔵 Alternative Time Suggested
+          </span>
+        );
+      case 'DECLINED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300">
+            <XCircle className="w-3.5 h-3.5 text-red-600" />
+            🔴 Slot Unavailable
+          </span>
+        );
+      case 'COMPLETED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+            🟣 Consultation Completed
+          </span>
+        );
+      case 'NO_SHOW':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
+            ⚫ No Show
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+            ⚪ Cancelled
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 sm:p-8 relative space-y-6">
-        
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -58,184 +128,155 @@ export const BookingStatusModal: React.FC<BookingStatusModalProps> = ({ isOpen, 
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Header */}
-        <div>
-          <span className="inline-block bg-sky-100 text-sky-800 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full mb-3">
-            Active Appointment Status
-          </span>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Your Booking Summary
-          </h2>
-        </div>
-
         {!appointment ? (
-          <div className="text-center py-8 space-y-4">
-            <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <CalendarIcon className="w-8 h-8" />
-            </div>
-            <p className="text-slate-600 text-sm font-medium">No active appointment requests found on this device.</p>
+          <div className="text-center py-8 space-y-3">
+            <HelpCircle className="w-12 h-12 text-slate-300 mx-auto" />
+            <h3 className="text-lg font-bold text-slate-800">No Active Booking Found</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              You do not have any pending appointment requests on this device.
+            </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            
-            {/* Status Card */}
-            <div
-              className={`p-6 rounded-2xl border flex items-start justify-between gap-4 ${
-                appointment.status === 'CONFIRMED'
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  : 'bg-amber-50 border-amber-200 text-amber-900'
-              }`}
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  {appointment.status === 'CONFIRMED' ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                  ) : (
-                    <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-pulse" />
-                  )}
-                  <span className="font-extrabold text-base">
-                    {appointment.status === 'CONFIRMED' ? 'Status: Session Confirmed!' : 'Status: Pending Clinic Confirmation'}
-                  </span>
-                </div>
-                <p className="text-xs font-medium leading-relaxed opacity-90">
-                  {appointment.status === 'CONFIRMED'
-                    ? 'Dr Hashi has confirmed your appointment! Please arrive 10 minutes prior.'
-                    : 'Your WhatsApp request was dispatched. Dr Hashi will confirm your slot shortly.'}
-                </p>
-              </div>
-
-              <span className="text-[11px] font-mono font-bold bg-white/80 px-2.5 py-1 rounded-lg border shrink-0">
-                {appointment.id}
+          <>
+            {/* Header */}
+            <div className="border-b border-slate-100 pb-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Booking Reference
               </span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-lg font-mono font-bold text-sky-700 bg-sky-50 px-3 py-1 rounded-lg border border-sky-200">
+                  {appointment.id}
+                </span>
+                {getStatusBadge(appointment.status)}
+              </div>
             </div>
 
-            {/* Details Grid */}
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3 text-xs text-slate-700">
-              <div className="flex justify-between border-b border-slate-200/80 pb-2">
-                <span className="font-semibold text-slate-500">Patient Name:</span>
-                <span className="font-bold text-slate-900">{appointment.name}</span>
+            {actionFeedback && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800">
+                {actionFeedback}
               </div>
-              <div className="flex justify-between border-b border-slate-200/80 pb-2">
-                <span className="font-semibold text-slate-500">Contact Phone:</span>
-                <span className="font-bold text-slate-900">{appointment.phone}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200/80 pb-2">
-                <span className="font-semibold text-slate-500">Requested Date & Time:</span>
-                <span className="font-bold text-sky-700">{appointment.preferredDate} ({appointment.preferredTime})</span>
-              </div>
-              {appointment.mainConcern && (
-                <div className="flex justify-between border-b border-slate-200/80 pb-2">
-                  <span className="font-semibold text-slate-500">Primary Concern:</span>
-                  <span className="font-bold text-slate-900">{appointment.mainConcern}</span>
+            )}
+
+            {/* Alternative Proposed Decision Banner */}
+            {appointment.status === 'ALTERNATIVE_PROPOSED' && appointment.alternativeSlot && (
+              <div className="p-5 bg-sky-50 border border-sky-200 rounded-2xl space-y-3 animate-in fade-in">
+                <div className="flex items-center gap-2 text-sky-800 font-bold text-sm">
+                  <CalendarIcon className="w-4 h-4 text-sky-600" />
+                  <span>Dr. Hashi Proposed a Different Time</span>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <span className="font-semibold text-slate-500">Clinic Address:</span>
-                <span className="font-medium text-slate-900 text-right max-w-[200px]">{clinicInfo.address.full}</span>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  Requested slot was unavailable. Dr. Hashi suggested:{' '}
+                  <strong>
+                    {appointment.alternativeSlot.date} ({appointment.alternativeSlot.time})
+                  </strong>
+                  .
+                </p>
+                {appointment.alternativeSlot.doctorNote && (
+                  <p className="text-xs text-slate-600 italic">
+                    Note: &ldquo;{appointment.alternativeSlot.doctorNote}&rdquo;
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePatientAlternative('ACCEPT')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs shadow-xs transition-colors"
+                  >
+                    Accept New Time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePatientAlternative('DECLINE')}
+                    className="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2.5 px-3 rounded-xl text-xs transition-colors"
+                  >
+                    Decline Slot
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Appointment Details Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                <span className="text-slate-400 font-medium block">Patient Name</span>
+                <span className="font-bold text-slate-800 text-sm">{appointment.name}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                <span className="text-slate-400 font-medium block">Contact Number</span>
+                <span className="font-bold text-slate-800 text-sm">{appointment.phone}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                <span className="text-slate-400 font-medium block">Scheduled Date</span>
+                <span className="font-bold text-slate-800 text-sm">{appointment.preferredDate}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                <span className="text-slate-400 font-medium block">Preferred Time</span>
+                <span className="font-bold text-slate-800 text-sm">{appointment.preferredTime}</span>
               </div>
             </div>
 
-            {/* Action Buttons: Calendar Sync */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Calendar Synchronization</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <a
-                  href={generateGoogleCalendarUrl({
-                    date: appointment.preferredDate,
-                    time: appointment.preferredTime,
-                    patientName: appointment.name,
-                    concern: appointment.mainConcern,
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3 px-4 rounded-xl text-xs transition-colors shadow-xs"
-                >
-                  <ExternalLink className="w-4 h-4 text-sky-600" />
-                  <span>Google Calendar</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    downloadIcsFile({
+            {/* Actions for Confirmed Status */}
+            {appointment.status === 'CONFIRMED' && (
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Calendar Sync
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <a
+                    href={generateGoogleCalendarUrl({
                       date: appointment.preferredDate,
                       time: appointment.preferredTime,
                       patientName: appointment.name,
                       concern: appointment.mainConcern,
-                    })
-                  }
-                  className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-4 rounded-xl text-xs transition-colors shadow-xs"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download .ICS File</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Notification Permission & Interactive Doctor Simulation */}
-            <div className="p-4 rounded-2xl bg-sky-50 border border-sky-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sky-900 text-xs font-bold">
-                  <Bell className="w-4 h-4 text-sky-600" />
-                  <span>Browser Push Notifications</span>
-                </div>
-                {!notificationEnabled ? (
-                  <button
-                    onClick={handleEnableNotifications}
-                    className="text-[11px] font-bold text-sky-700 underline hover:text-sky-900"
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-slate-800 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors shadow-sm"
                   >
-                    Enable Notifications
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Add to Google Calendar</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadIcsFile({
+                        date: appointment.preferredDate,
+                        time: appointment.preferredTime,
+                        patientName: appointment.name,
+                        concern: appointment.mainConcern,
+                      })
+                    }
+                    className="inline-flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Download .ICS</span>
                   </button>
-                ) : (
-                  <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Enabled
-                  </span>
-                )}
+                </div>
               </div>
+            )}
 
-              {/* Status Simulation Toggle */}
-              <div className="pt-2 border-t border-sky-200/60 flex items-center justify-between text-xs">
-                <span className="text-slate-600">Simulate Doctor Confirmation:</span>
-                <button
-                  onClick={handleToggleStatusSim}
-                  className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] transition-colors shadow-xs"
-                >
-                  Set to {appointment.status === 'PENDING' ? '🟢 CONFIRMED' : '🟡 PENDING'}
-                </button>
-              </div>
-            </div>
-
-            {/* Re-Open WhatsApp & Contact */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Quick WhatsApp Contact */}
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100">
               <button
-                onClick={() =>
-                  openWhatsAppChat({
-                    name: appointment.name,
-                    phone: appointment.phone,
-                    preferredDate: appointment.preferredDate,
-                    preferredTime: appointment.preferredTime,
-                    mainConcern: appointment.mainConcern,
-                    referenceId: appointment.id,
-                  })
-                }
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm transition-colors"
+                type="button"
+                onClick={() => openWhatsAppChat({ name: appointment.name, phone: appointment.phone })}
+                className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-bold text-xs"
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>Re-open WhatsApp Chat</span>
+                <span>Message Clinic on WhatsApp</span>
               </button>
 
               <button
+                type="button"
                 onClick={handleClear}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-slate-400 hover:text-red-600 text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 text-slate-400 hover:text-red-600 text-xs font-semibold"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear Booking Record</span>
+                <span>Clear from Device</span>
               </button>
             </div>
-
-          </div>
+          </>
         )}
-
       </div>
     </div>
   );

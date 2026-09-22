@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Phone, MessageSquare, Menu, X, Star, Calendar, Instagram, Clock } from 'lucide-react';
+import { Phone, MessageSquare, Menu, X, Star, Calendar, Instagram } from 'lucide-react';
 import { clinicInfo } from '../../data/clinicInfo';
 import { openWhatsAppChat } from '../../utils/whatsapp';
-import { getActiveAppointment, StoredAppointment } from '../../utils/appointmentStorage';
-import { BookingStatusModal } from '../booking/BookingStatusModal';
+import { trackEvent } from '../../utils/analytics';
 
 export const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [activeAppointment, setActiveAppointment] = useState<StoredAppointment | null>(null);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -20,16 +17,6 @@ export const Header: React.FC = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Check active appointment in local storage
-  useEffect(() => {
-    const checkAppointment = () => {
-      setActiveAppointment(getActiveAppointment());
-    };
-    checkAppointment();
-    window.addEventListener('storage', checkAppointment);
-    return () => window.removeEventListener('storage', checkAppointment);
-  }, [location.pathname]);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -78,13 +65,17 @@ export const Header: React.FC = () => {
               </a>
               <a
                 href={`tel:${clinicInfo.phone}`}
+                onClick={() => trackEvent('cta_phone_click', { placement: 'header_top_bar' })}
                 className="hover:text-sky-400 transition-colors flex items-center gap-1 font-medium"
               >
                 <Phone className="w-3 h-3 text-sky-400" />
                 <span>{clinicInfo.phoneDisplay}</span>
               </a>
               <button
-                onClick={() => openWhatsAppChat()}
+                onClick={() => {
+                  trackEvent('cta_whatsapp_click', { placement: 'header_top_bar' });
+                  openWhatsAppChat();
+                }}
                 className="hover:text-emerald-400 transition-colors flex items-center gap-1 font-medium"
               >
                 <MessageSquare className="w-3 h-3 text-emerald-400" />
@@ -137,22 +128,9 @@ export const Header: React.FC = () => {
 
             {/* Right Action Buttons */}
             <div className="hidden lg:flex items-center gap-3">
-              {activeAppointment && (
-                <button
-                  onClick={() => setIsStatusModalOpen(true)}
-                  className={`inline-flex items-center gap-1.5 border px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    activeAppointment.status === 'CONFIRMED'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                      : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>My Booking ({activeAppointment.status === 'CONFIRMED' ? '🟢 Confirmed' : '🟡 Pending'})</span>
-                </button>
-              )}
-
               <Link
                 to="/book"
+                onClick={() => trackEvent('cta_book_click', { placement: 'header_navbar' })}
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-sm hover:shadow-glow transition-all transform active:scale-95"
               >
                 <Calendar className="w-4 h-4" />
@@ -160,61 +138,59 @@ export const Header: React.FC = () => {
               </Link>
             </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Drawer */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 top-[100px] z-40 bg-white/95 backdrop-blur-md flex flex-col justify-between p-6 border-t border-slate-200 animate-in fade-in slide-in-from-top duration-200">
-          <div className="space-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`block px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
-                  isActive(link.path)
-                    ? 'text-sky-700 bg-sky-50'
-                    : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {link.name}
-              </Link>
-            ))}
-          </div>
-
-          <div className="pt-6 border-t border-slate-100 space-y-3 mb-16">
-            <Link
-              to="/book"
-              className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white font-semibold py-3.5 rounded-xl shadow-md"
-            >
-              <Calendar className="w-5 h-5" />
-              <span>Book Appointment</span>
-            </Link>
+            {/* Mobile Menu Button */}
             <button
-              onClick={() => openWhatsAppChat()}
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold py-3.5 rounded-xl shadow-md"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              aria-label="Toggle menu"
             >
-              <MessageSquare className="w-5 h-5" />
-              <span>Chat on WhatsApp</span>
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
-      )}
-    </header>
 
-    <BookingStatusModal
-      isOpen={isStatusModalOpen}
-      onClose={() => setIsStatusModalOpen(false)}
-      onAppointmentCleared={() => setActiveAppointment(null)}
-    />
-  </>
-);
+        {/* Mobile Drawer */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden fixed inset-0 top-[100px] z-40 bg-white/95 backdrop-blur-md flex flex-col justify-between p-6 border-t border-slate-200 animate-in fade-in slide-in-from-top duration-200">
+            <div className="space-y-2">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`block px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
+                    isActive(link.path)
+                      ? 'text-sky-700 bg-sky-50'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 space-y-3 mb-16">
+              <Link
+                to="/book"
+                onClick={() => trackEvent('cta_book_click', { placement: 'mobile_drawer' })}
+                className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white font-semibold py-3.5 rounded-xl shadow-md"
+              >
+                <Calendar className="w-5 h-5" />
+                <span>Book Appointment</span>
+              </Link>
+              <button
+                onClick={() => {
+                  trackEvent('cta_whatsapp_click', { placement: 'mobile_drawer' });
+                  openWhatsAppChat();
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold py-3.5 rounded-xl shadow-md"
+              >
+                <MessageSquare className="w-5 h-5" />
+                <span>Chat on WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+    </>
+  );
 };

@@ -1,18 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SEOHead } from '../components/seo/SEOHead';
 import { reviewsData } from '../data/reviews';
 import { clinicInfo } from '../data/clinicInfo';
-import { Star, Quote, ExternalLink, Calendar } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Star, Quote, ExternalLink, MessageCircle } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 
 export const ReviewsPage: React.FC = () => {
-  const [selectedTag, setSelectedTag] = React.useState<string>('All');
+  const [selectedTag, setSelectedTag] = useState<string>('All');
 
   const tags = ['All', 'Back Pain', 'Neck Care', 'Sciatica', 'Posture Correction', 'Desk Fatigue'];
 
-  const filteredReviews = selectedTag === 'All'
-    ? reviewsData
-    : reviewsData.filter((r) => r.highlightTag.toLowerCase().includes(selectedTag.toLowerCase()) || r.comment.toLowerCase().includes(selectedTag.toLowerCase()));
+  const filteredReviews =
+    selectedTag === 'All'
+      ? reviewsData
+      : reviewsData.filter(
+          (r) =>
+            r.highlightTag.toLowerCase().includes(selectedTag.toLowerCase()) ||
+            r.comment.toLowerCase().includes(selectedTag.toLowerCase())
+        );
+
+  const handleShareReferral = () => {
+    trackEvent('referral_share_click', { channel: 'whatsapp' });
+    const shareText = `Hi! If you are suffering from neck stiffness, back pain, or desk-work posture strain, I recommend Dr Shinto Thomas at Dr Hashi Chiropractic in Electronic City: ${window.location.origin}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleReviewClick = () => {
+    trackEvent('review_cta_click', { source: 'reviews_page' });
+  };
 
   return (
     <>
@@ -22,7 +38,6 @@ export const ReviewsPage: React.FC = () => {
       />
       <main className="py-12 lg:py-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
           {/* Header */}
           <div className="text-center space-y-4 mb-10">
             <span className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200 px-3.5 py-1.5 rounded-full text-xs font-semibold">
@@ -91,32 +106,52 @@ export const ReviewsPage: React.FC = () => {
             ))}
           </div>
 
-          {/* External Google Review Link Card */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-200/80 text-center max-w-2xl mx-auto space-y-4">
-            <h3 className="text-xl font-bold text-slate-900">Have you visited Dr Hashi Chiropractic?</h3>
-            <p className="text-slate-600 text-sm">
-              We value genuine feedback from our patients! You can view all 77+ reviews directly on Google Maps.
-            </p>
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href={clinicInfo.googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-md"
-              >
-                <span>View Google Business Profile</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
-              <Link
-                to="/book"
-                className="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-md"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Book Your Session</span>
-              </Link>
+          {/* Action Cards: Review Request & Patient Referral */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* External Google Review Link Card */}
+            <div className="bg-white p-8 rounded-3xl border border-slate-200/80 text-center space-y-4 shadow-sm flex flex-col justify-between">
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Patient Feedback</span>
+                <h3 className="text-xl font-bold text-slate-900">Visited Dr Hashi Chiropractic?</h3>
+                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                  We appreciate your feedback! Share your experience to help local Electronic City residents find trusted care.
+                </p>
+              </div>
+              <div className="pt-2">
+                <a
+                  href={clinicInfo.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleReviewClick}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm px-6 py-3.5 rounded-xl transition-all shadow-md"
+                >
+                  <span>Leave a Review on Google Maps</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            {/* Refer a Colleague or Friend Card */}
+            <div className="bg-gradient-to-br from-teal-900 to-slate-900 text-white p-8 rounded-3xl border border-teal-800 text-center space-y-4 shadow-sm flex flex-col justify-between">
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-teal-400">Community Health</span>
+                <h3 className="text-xl font-bold text-white">Know Someone in Pain?</h3>
+                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                  Refer a friend, teammate, or family member dealing with desk strain or spinal discomfort.
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleShareReferral}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm px-6 py-3.5 rounded-xl transition-all shadow-md"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Refer via WhatsApp</span>
+                </button>
+              </div>
             </div>
           </div>
-
         </div>
       </main>
     </>

@@ -16,7 +16,7 @@ describe('appointmentStorage', () => {
     });
 
     expect(saved.id).toContain('HASHI-');
-    expect(saved.status).toBe('PENDING');
+    expect(saved.status).toBe('PENDING_CONFIRMATION');
 
     const retrieved = getActiveAppointment();
     expect(retrieved).not.toBeNull();
